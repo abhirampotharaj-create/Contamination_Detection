@@ -1,0 +1,69 @@
+import os
+from pathlib import Path
+from ultralytics import YOLO
+
+# 1. Path Configurations
+DATASET_ROOT = Path(r"...\taco_yolo")
+MODELS_DIR   = Path(r"...\models")
+DATA_YAML    = DATASET_ROOT / "data.yaml"
+CLASS_NAMES  = ['plastic_bag', 'rigid_plastic', 'foam']
+
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
+
+# 2. Automatically Generates data.yaml
+yaml_path_str = str(DATASET_ROOT).replace("\\", "/")
+yaml_content = f"""path: {yaml_path_str}
+train: train/images
+val:   val/images
+test:  test/images
+
+nc: {len(CLASS_NAMES)}
+names: {CLASS_NAMES}
+"""
+with open(DATA_YAML, 'w') as f:
+    f.write(yaml_content)
+
+# 3. Model Training
+model = YOLO('yolo11x.pt')
+model.train(
+    data=str(DATA_YAML),
+    epochs=200,
+    patience=50,
+    batch=8,
+    imgsz=640,
+    device=0,
+    optimizer='SGD',
+    lr0=0.0005,
+    lrf=0.01,
+    momentum=0.9,
+    weight_decay=0.0005,
+    cos_lr=True,
+    mosaic=1.0,
+    copy_paste=0.5,
+    flipud=0.3,
+    fliplr=0.5,
+    degrees=15,
+    hsv_h=0.015,
+    hsv_s=0.7,
+    hsv_v=0.4,
+    scale=0.5,
+    mixup=0.15,
+    project=str(MODELS_DIR),
+    name='yolo11x_3class',
+    save=True,
+    save_period=10,
+    plots=True,
+    verbose=True,
+)
+
+# 4. Final Evaluation on Test Set
+best_model = YOLO(str(MODELS_DIR / 'yolo11x_3class' / 'weights' / 'best.pt'))
+test_results = best_model.val(
+    data=str(DATA_YAML),
+    split='test',
+    device=0,
+    imgsz=640,
+    conf=0.20,
+    iou=0.45,
+    verbose=False
+)
